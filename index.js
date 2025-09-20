@@ -5,10 +5,20 @@ import crypto from "crypto";
 const app = express();
 app.use(express.json());
 
+// قائمة الشبكات المسموح بها
+const ALLOWED_NETWORKS = [
+  "ERC20", "BSC", "TRC20", "OMNI", "POLYGON", "ARBITRUM",
+  "BTC", "SEGWITBTC", "LIGHTNING", "SOL", "XRP", "TRX",
+  "Litecoin" // تم إضافة Litecoin
+];
+
 // تحذير إذا لم يتم ضبط API Key أو Secret
 if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
   console.warn("⚠️ BINANCE_API_KEY or BINANCE_API_SECRET is not set! API requests will fail.");
 }
+
+// Health check
+app.get("/", (req, res) => res.send("🚀 Server is alive!"));
 
 // Helper لتوليد signature
 function signQuery(queryString) {
@@ -18,16 +28,7 @@ function signQuery(queryString) {
     .digest("hex");
 }
 
-// قائمة الشبكات المسموح بها
-const ALLOWED_NETWORKS = [
-  "ERC20", "BSC", "TRC20", "OMNI", "POLYGON", "ARBITRUM",
-  "BTC", "SEGWITBTC", "LIGHTNING", "SOL", "XRP", "TRX"
-];
-
-// Health check
-app.get("/", (req, res) => res.send("🚀 Server is alive!"));
-
-// Endpoint لكل العملات
+// ✅ Endpoint لكل العملات
 app.get("/all-coins-fees", async (req, res) => {
   if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
     return res.json({ warning: "API Key/Secret not set", coins: [] });
@@ -55,7 +56,7 @@ app.get("/all-coins-fees", async (req, res) => {
       coin: coinInfo.coin,
       name: coinInfo.name || "",
       networks: (coinInfo.networkList || [])
-        .filter((n) => n.withdrawEnable)
+        .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network)) // فقط الشبكات المسموح بها والمفعلة
         .map((n) => ({
           network: n.network,
           withdrawFee: n.withdrawFee,
@@ -63,7 +64,7 @@ app.get("/all-coins-fees", async (req, res) => {
           depositEnable: n.depositEnable,
           withdrawEnable: n.withdrawEnable,
         }))
-        .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee)),
+        .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee)), // ترتيب حسب الأقل تكلفة
     }));
 
     res.json(result);
@@ -74,7 +75,7 @@ app.get("/all-coins-fees", async (req, res) => {
   }
 });
 
-// Endpoint لعملة واحدة مع فلترة الشبكات المسموح بها
+// ✅ Endpoint لعملة واحدة
 app.post("/get-withdraw-fees", async (req, res) => {
   const { coin } = req.body;
   if (!coin) return res.status(400).json({ error: "coin is required" });
@@ -105,9 +106,8 @@ app.post("/get-withdraw-fees", async (req, res) => {
 
     if (!coinInfo) return res.status(404).json({ error: "Coin not found" });
 
-    // فلترة الشبكات المسموح بها فقط
     const networks = (coinInfo.networkList || [])
-      .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network))
+      .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network)) // فقط الشبكات المسموح بها والمفعلة
       .map((n) => ({
         network: n.network,
         withdrawFee: n.withdrawFee,
@@ -115,11 +115,10 @@ app.post("/get-withdraw-fees", async (req, res) => {
         depositEnable: n.depositEnable,
         withdrawEnable: n.withdrawEnable,
       }))
-      .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee));
+      .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee)); // ترتيب حسب الأقل تكلفة
 
     if (networks.length === 0) {
-      // إذا لم توجد شبكة مسموح بها
-      return res.json({ coin: coinInfo.coin, name: coinInfo.name || "", networks: [], specialFlag: true });
+      return res.json({ coin: coinInfo.coin, name: coinInfo.name || "", networks: [], warning: "No allowed networks available" });
     }
 
     res.json({ coin: coinInfo.coin, name: coinInfo.name || "", networks });
@@ -133,4 +132,3 @@ app.post("/get-withdraw-fees", async (req, res) => {
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-      
