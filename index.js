@@ -1,5 +1,5 @@
 const express = require("express");
-const fetch = require("node-fetch"); // النسخة 2.x متوافقة مع CommonJS
+const fetch = require("node-fetch");
 
 const app = express();
 app.use(express.json());
@@ -98,4 +98,11 @@ app.post("/get-withdraw-fees", async (req, res) => {
 
 // ✅ Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+// 🔹 Self-ping every 30 seconds to keep container alive
+setInterval(() => {
+  fetch(`http://localhost:${PORT}/`)
+    .then(() => console.log("💓 Self-ping successful"))
+    .catch(err => console.warn("⚠️ Self-ping failed:", err.message));
+}, 30000);
