@@ -1,41 +1,60 @@
 import express from "express";
-import Binance from "binance";
+import fetch from "node-fetch";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 app.use(express.json());
 
-// تهيئة Binance client
-const client = new Binance().options({
-  APIKEY: process.env.BINANCE_API_KEY,
-  APISECRET: process.env.BINANCE_API_SECRET
-});
-
-// endpoint لاختبار
+// ✅ اختبار
 app.get("/", (req, res) => {
-  res.send("🚀 Binance Fees API is running!");
+  res.json({ message: "Crypto Fees Server is running ✅" });
 });
 
-// endpoint لجلب رسوم السحب
+// ✅ API لرسوم السحب من Binance
 app.post("/get-withdraw-fees", async (req, res) => {
   try {
     const { asset } = req.body;
+
     if (!asset) {
       return res.status(400).json({ error: "Asset is required" });
     }
 
-    const fees = await client.withdrawFee(); // الدالة اللي بتجيب رسوم السحب
-    const assetFees = fees.find(f => f.coin === asset);
+    const response = await fetch("https://api.binance.com/sapi/v1/capital/config/getall", {
+      method: "GET",
+      headers: {
+        "X-MBX-APIKEY": process.env.BINANCE_API_KEY
+      }
+    });
 
-    if (!assetFees) {
+    if (!response.ok) {
+      throw new Error("Binance API error");
+    }
+
+    const data = await response.json();
+
+    const coin = data.find((c) => c.coin === asset.toUpperCase());
+    if (!coin) {
       return res.status(404).json({ error: "Asset not found" });
     }
 
-    res.json({ asset: assetFees });
+    res.json({
+      coin: coin.coin,
+      networks: coin.networkList.map((n) => ({
+        name: n.network,
+        withdrawFee: n.withdrawFee,
+        minWithdraw: n.withdrawMin
+      }))
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Error:", err.message);
     res.status(500).json({ error: "Something went wrong" });
   }
 });
 
+// ✅ Railway يحدد PORT تلقائي
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
