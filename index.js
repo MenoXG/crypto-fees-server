@@ -1,67 +1,51 @@
-import express from "express";
-import fetch from "node-fetch";
+// استخدم CommonJS لتفادي مشاكل ESM
+const express = require("express");
+const fetch = require("node-fetch");
 
 const app = express();
 app.use(express.json());
 
-// ✅ Health check
-app.get("/", (req, res) => {
-  res.send("🚀 Server is alive!");
-});
+// 🔹 تحقق من وجود API Key
+if (!process.env.BINANCE_API_KEY) {
+  console.error("❌ BINANCE_API_KEY is not set! Add it in Railway/Replit Environment");
+  process.exit(1);
+}
 
-// ✅ Debug endpoint
+// ✅ Health check
+app.get("/", (req, res) => res.send("🚀 Server is alive!"));
+
+// ✅ Endpoint لجلب رسوم السحب
 app.post("/get-withdraw-fees", async (req, res) => {
-  console.log("📩 Incoming request body:", req.body);
+  const { coin } = req.body;
+
+  if (!coin) {
+    return res.status(400).json({ error: "coin is required" });
+  }
 
   try {
-    const { coin } = req.body;
-
-    if (!coin) {
-      console.warn("⚠️ Missing 'coin' in request");
-      return res.status(400).json({ error: "coin is required" });
-    }
-
-    console.log(`🔍 Fetching data for coin: ${coin.toUpperCase()}`);
-
-    const url = "https://api.binance.com/sapi/v1/capital/config/getall";
-    console.log("🌍 Binance API URL:", url);
-
-    const response = await fetch(url, {
+    const response = await fetch("https://api.binance.com/sapi/v1/capital/config/getall", {
       method: "GET",
-      headers: {
-        "X-MBX-APIKEY": process.env.BINANCE_API_KEY,
-      },
+      headers: { "X-MBX-APIKEY": process.env.BINANCE_API_KEY },
     });
-
-    console.log("📡 Binance response status:", response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("❌ Binance API error:", errorText);
       return res.status(500).json({ error: "Binance API error", details: errorText });
     }
 
     const data = await response.json();
-    console.log("✅ Binance data received, total coins:", data.length);
+    const coinInfo = data.find(c => c.coin === coin.toUpperCase());
 
-    const coinInfo = data.find((c) => c.coin === coin.toUpperCase());
+    if (!coinInfo) return res.status(404).json({ error: "Coin not found" });
 
-    if (!coinInfo) {
-      console.warn(`⚠️ Coin not found: ${coin}`);
-      return res.status(404).json({ error: "Coin not found" });
-    }
-
-    const result = {
+    res.json({
       coin: coinInfo.coin,
-      networks: coinInfo.networkList.map((n) => ({
+      networks: (coinInfo.networkList || []).map(n => ({
         name: n.network,
         withdrawFee: n.withdrawFee,
         minWithdrawAmount: n.withdrawMin,
       })),
-    };
-
-    console.log("📤 Sending response:", result);
-    res.json(result);
+    });
 
   } catch (err) {
     console.error("🔥 Unexpected error:", err);
@@ -71,6 +55,4 @@ app.post("/get-withdraw-fees", async (req, res) => {
 
 // ✅ Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
