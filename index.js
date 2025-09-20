@@ -1,68 +1,75 @@
+// index.js
 import express from "express";
 import fetch from "node-fetch";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.use(express.json());
 
-// ✅ GET networks and fees for a specific coin
-app.get("/api/networks/:coin", async (req, res) => {
-  try {
-    const coin = req.params.coin.toUpperCase();
+const PORT = process.env.PORT || 3000;
 
-    const response = await fetch(
-      `https://api.binance.com/sapi/v1/capital/config/getall`,
-      {
-        method: "GET",
-        headers: {
-          "X-MBX-APIKEY": process.env.BINANCE_API_KEY, // ✅ المفتاح الصح
-        },
+// قراءة الـ API KEY من متغيرات Railway
+const BINANCE_API_KEY = process.env.BINANCE_API_KEY;
+
+// التحقق من وجود المفتاح
+if (!BINANCE_API_KEY) {
+  console.error("❌ Binance API Key is missing! Please set it in Railway Variables.");
+  process.exit(1);
+}
+
+// Endpoint لاختبار التشغيل
+app.get("/", (req, res) => {
+  res.json({ status: "Server is running 🚀" });
+});
+
+// Endpoint لجلب رسوم السحب من Binance
+app.post("/get-withdraw-fees", async (req, res) => {
+  try {
+    const { coin } = req.body;
+
+    if (!coin) {
+      return res.status(400).json({ error: "Coin is required (e.g., BTC, ETH, USDT)" });
+    }
+
+    const url = `https://api.binance.com/sapi/v1/capital/config/getall`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-MBX-APIKEY": BINANCE_API_KEY
       }
-    );
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      return res
-        .status(response.status)
-        .json({ error: "Binance API error", details: errorText });
+      console.error("Binance API error:", errorText);
+      return res.status(500).json({ error: "Binance API error", details: errorText });
     }
 
     const data = await response.json();
 
-    // تصفية بيانات العملة المطلوبة فقط
-    const coinData = data.find((item) => item.coin === coin);
+    // تصفية البيانات للـ Coin المطلوب
+    const coinData = data.find(c => c.coin === coin.toUpperCase());
 
     if (!coinData) {
-      return res.status(404).json({ error: "Coin not found" });
+      return res.status(404).json({ error: `Coin ${coin} not found in Binance API` });
     }
 
     res.json({
       coin: coinData.coin,
-      name: coinData.name,
-      networks: coinData.networkList.map((n) => ({
+      networks: coinData.networkList.map(n => ({
         network: n.network,
         withdrawFee: n.withdrawFee,
-        minWithdrawAmount: n.minWithdrawAmount,
-        depositEnable: n.depositEnable,
-        withdrawEnable: n.withdrawEnable,
-      })),
+        withdrawMin: n.withdrawMin
+      }))
     });
+
   } catch (error) {
-    console.error("Error fetching Binance API:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Server error:", error);
+    res.status(500).json({ error: "Something went wrong", details: error.message });
   }
 });
 
-// ✅ Root endpoint (اختياري للتجربة)
-app.get("/", (req, res) => {
-  res.send("🚀 Binance Proxy API is running...");
-});
-
-// ✅ تشغيل السيرفر
+// تشغيل السيرفر
 app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
