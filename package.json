@@ -1,5 +1,5 @@
 {
-  "name": "crypto-fees-server",
+  "name": "binance-fees-api",
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
@@ -7,8 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.2",
-    "dotenv": "^16.3.1"
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2"
   }
 }
