@@ -1,66 +1,53 @@
 import express from "express";
-import bodyParser from "body-parser";
-import fetch from "node-fetch";
+import axios from "axios";
 
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
 
-// Endpoint لاستقبال العملة من العميل
+const BINANCE_API_KEY = process.env.BINANCE_API_KEY;
+const BINANCE_SECRET_KEY = process.env.BINANCE_SECRET_KEY;
+
+// Endpoint رئيسي للتأكد إن السيرفر شغال
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "Binance Fees API is running 🚀" });
+});
+
+// Endpoint للحصول على رسوم السحب
 app.post("/get-withdraw-fees", async (req, res) => {
   try {
     const { coin } = req.body;
-
     if (!coin) {
-      return res.status(400).json({ error: "coin is required" });
+      return res.status(400).json({ status: "error", message: "coin is required" });
     }
 
-    console.log("✅ Request received for coin:", coin);
-
-    // استدعاء Binance API
-    const response = await fetch("https://api.binance.com/sapi/v1/capital/config/getall", {
-      method: "GET",
+    const response = await axios.get("https://api.binance.com/sapi/v1/capital/config/getall", {
       headers: {
-        "X-MBX-APIKEY": process.env.BINANCE_API_KEY, // المفتاح من Railway
+        "X-MBX-APIKEY": BINANCE_API_KEY,
       },
     });
 
-    if (!response.ok) {
-      console.error("❌ Binance API error:", response.status, await response.text());
-      return res.status(500).json({ error: "Failed to fetch from Binance API" });
+    const coinInfo = response.data.find((c) => c.coin === coin.toUpperCase());
+
+    if (!coinInfo) {
+      return res.status(404).json({ status: "error", message: `Coin ${coin} not found` });
     }
-
-    const data = await response.json();
-    console.log("📦 Binance response received");
-
-    // البحث عن العملة المطلوبة
-    const currencyInfo = data.find(
-      (c) => c.coin.toUpperCase() === coin.toUpperCase()
-    );
-
-    if (!currencyInfo) {
-      return res.status(404).json({ error: "Currency not found" });
-    }
-
-    // تجهيز النتيجة
-    const result = currencyInfo.networkList.map((network) => ({
-      network: network.network,
-      withdrawFee: network.withdrawFee,
-      withdrawMin: network.withdrawMin,
-    }));
-
-    console.log("✅ Result prepared for:", coin);
 
     res.json({
-      coin: coin.toUpperCase(),
-      networks: result,
+      status: "success",
+      coin: coinInfo.coin,
+      withdrawFee: coinInfo.networkList.map((n) => ({
+        network: n.network,
+        fee: n.withdrawFee,
+        minWithdraw: n.withdrawMin,
+      })),
     });
-  } catch (error) {
-    console.error("🔥 Error in /get-withdraw-fees:", error);
-    res.status(500).json({ error: "Something went wrong" });
+  } catch (err) {
+    console.error("Error fetching Binance fees:", err.message);
+    res.status(500).json({ status: "error", message: "Failed to fetch Binance fees" });
   }
 });
 
-// تشغيل السيرفر
+// ✅ أهم حاجة هنا: Railway بيوفر متغير PORT
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
