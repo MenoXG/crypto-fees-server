@@ -9,7 +9,7 @@ app.use(express.json());
 const ALLOWED_NETWORKS = [
   "ERC20", "BSC", "TRC20", "OMNI", "POLYGON", "ARBITRUM",
   "BTC", "SEGWITBTC", "LIGHTNING", "SOL", "XRP", "TRX",
-  "Litecoin" // تم إضافة Litecoin
+  "LTC" // تم إضافة Litecoin
 ];
 
 // تحذير إذا لم يتم ضبط API Key أو Secret
