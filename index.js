@@ -1,53 +1,64 @@
-// ✅ Endpoint لعملة واحدة (معدل)
+// index.js
+import express from "express";
+import fetch from "node-fetch"; // لو هتستخدم fetch
+import crypto from "crypto";
+
+const app = express();
+app.use(express.json());
+
+// شبكات مسموحة مسبقًا
+const ALLOWED_NETWORKS = ["TRC20", "TRX", "ERC20", "BEP20"];
+
+// مثال على API Key و Secret (يُفضل استخدام Environment Variables)
+const BINANCE_API_KEY = process.env.BINANCE_API_KEY;
+const BINANCE_API_SECRET = process.env.BINANCE_API_SECRET;
+
+// دالة للحصول على رسوم السحب
+async function getWithdrawFees(coin) {
+  const url = `https://api.binance.com/sapi/v1/capital/config/getall`;
+  const response = await fetch(url, {
+    headers: {
+      "X-MBX-APIKEY": BINANCE_API_KEY
+    }
+  });
+  const data = await response.json();
+
+  // البحث عن العملة المطلوبة
+  const coinData = data.find(c => c.coin === coin);
+  if (!coinData) return [];
+
+  // فلترة الشبكات المسموحة
+  const networks = coinData.networkList
+    .filter(n => ALLOWED_NETWORKS.includes(n.network))
+    .map(n => ({
+      network: n.network,
+      withdrawFee: n.withdrawFee,
+      minWithdrawAmount: n.minWithdrawAmt
+    }));
+
+  // ترتيب حسب withdrawFee
+  networks.sort((a, b) => a.withdrawFee - b.withdrawFee);
+
+  return networks;
+}
+
+// endpoint
 app.post("/get-withdraw-fees", async (req, res) => {
   const { coin } = req.body;
   if (!coin) return res.status(400).json({ error: "coin is required" });
 
-  if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
-    return res.json({ warning: "API Key/Secret not set", coin, networks: [] });
-  }
-
-  // الشبكات المسموح بها
-  const allowedNetworks = ["ERC20", "BSC", "TRC20", "OMNI", "POLYGON", "ARBITRUM", "BTC", "SEGWITBTC", "LIGHTNING", "SOL", "XRP", "TRX"];
-
   try {
-    const timestamp = Date.now();
-    const queryString = `timestamp=${timestamp}`;
-    const signature = signQuery(queryString);
-
-    const url = `https://api.binance.com/sapi/v1/capital/config/getall?${queryString}&signature=${signature}`;
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: { "X-MBX-APIKEY": process.env.BINANCE_API_KEY },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(500).json({ error: "Binance API error", details: text });
+    const fees = await getWithdrawFees(coin);
+    if (fees.length === 0) {
+      return res.json({ message: "No allowed networks found for this coin", networks: [] });
     }
-
-    const data = await response.json();
-    const coinInfo = data.find((c) => c.coin === coin.toUpperCase());
-
-    if (!coinInfo) return res.status(404).json({ error: "Coin not found" });
-
-    // تصفية الشبكات: مفعلة ومسموح بها فقط
-    const networks = (coinInfo.networkList || [])
-      .filter((n) => n.withdrawEnable && allowedNetworks.includes(n.network))
-      .map((n) => ({
-        network: n.network,
-        withdrawFee: n.withdrawFee,
-        minWithdrawAmount: n.withdrawMin,
-        depositEnable: n.depositEnable,
-        withdrawEnable: n.withdrawEnable,
-      }))
-      .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee)); // ترتيب حسب أقل رسوم
-
-    res.json({ coin: coinInfo.coin, name: coinInfo.name || "", networks });
-
+    res.json({ coin, networks: fees });
   } catch (err) {
-    console.error("🔥 Unexpected error:", err);
-    res.status(500).json({ error: "Something went wrong", details: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch withdraw fees" });
   }
 });
+
+// تشغيل السيرفر
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
