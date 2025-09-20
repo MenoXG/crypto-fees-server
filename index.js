@@ -4,10 +4,9 @@ const fetch = require("node-fetch");
 const app = express();
 app.use(express.json());
 
-// 🔹 تحقق من وجود API Key
+// 🔹 تحقق من وجود API Key ولكن بدون crash
 if (!process.env.BINANCE_API_KEY) {
-  console.error("❌ BINANCE_API_KEY is not set! Add it in Railway/Replit Environment");
-  process.exit(1);
+  console.warn("⚠️ BINANCE_API_KEY is not set! API requests to Binance will fail.");
 }
 
 // ✅ Health check
@@ -15,6 +14,10 @@ app.get("/", (req, res) => res.send("🚀 Server is alive!"));
 
 // ✅ Endpoint لكل العملات
 app.get("/all-coins-fees", async (req, res) => {
+  if (!process.env.BINANCE_API_KEY) {
+    return res.status(500).json({ error: "BINANCE_API_KEY is missing" });
+  }
+
   try {
     const response = await fetch("https://api.binance.com/sapi/v1/capital/config/getall", {
       method: "GET",
@@ -52,8 +55,9 @@ app.get("/all-coins-fees", async (req, res) => {
 app.post("/get-withdraw-fees", async (req, res) => {
   const { coin } = req.body;
 
-  if (!coin) {
-    return res.status(400).json({ error: "coin is required" });
+  if (!coin) return res.status(400).json({ error: "coin is required" });
+  if (!process.env.BINANCE_API_KEY) {
+    return res.status(500).json({ error: "BINANCE_API_KEY is missing" });
   }
 
   try {
