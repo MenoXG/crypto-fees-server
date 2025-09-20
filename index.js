@@ -1,43 +1,50 @@
-const express = require("express");
-const fetch = require("node-fetch"); // node-fetch@2
+import express from "express";
+import fetch from "node-fetch";
+import crypto from "crypto";
 
 const app = express();
 app.use(express.json());
 
-// 🔹 تحذير إذا لم يتم ضبط API Key
-if (!process.env.BINANCE_API_KEY) {
-  console.warn("⚠️ BINANCE_API_KEY is not set! API requests will fail.");
+// تحذير إذا لم يتم ضبط API Key أو Secret
+if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
+  console.warn("⚠️ BINANCE_API_KEY or BINANCE_API_SECRET is not set! API requests will fail.");
 }
 
-// ✅ Health check
+// Health check
 app.get("/", (req, res) => res.send("🚀 Server is alive!"));
 
-// ✅ Endpoint لكل العملات مع fallback عند API Key غير صالح
+// Helper لتوليد signature
+function signQuery(queryString) {
+  return crypto
+    .createHmac("sha256", process.env.BINANCE_API_SECRET)
+    .update(queryString)
+    .digest("hex");
+}
+
+// ✅ Endpoint لكل العملات
 app.get("/all-coins-fees", async (req, res) => {
-  if (!process.env.BINANCE_API_KEY) {
-    return res.status(200).json({
-      warning: "BINANCE_API_KEY not set. Returning empty list.",
-      coins: [],
-    });
+  if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
+    return res.json({ warning: "API Key/Secret not set", coins: [] });
   }
 
   try {
-    const response = await fetch(
-      "https://api.binance.com/sapi/v1/capital/config/getall",
-      {
-        method: "GET",
-        headers: { "X-MBX-APIKEY": process.env.BINANCE_API_KEY },
-      }
-    );
+    const timestamp = Date.now();
+    const queryString = `timestamp=${timestamp}`;
+    const signature = signQuery(queryString);
+
+    const url = `https://api.binance.com/sapi/v1/capital/config/getall?${queryString}&signature=${signature}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "X-MBX-APIKEY": process.env.BINANCE_API_KEY },
+    });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.warn("⚠️ Binance API error:", errorText);
-      return res.status(500).json({ error: "Binance API error", details: errorText });
+      const text = await response.text();
+      return res.status(500).json({ error: "Binance API error", details: text });
     }
 
     const data = await response.json();
-
     const result = data.map((coinInfo) => ({
       coin: coinInfo.coin,
       name: coinInfo.name || "",
@@ -51,37 +58,37 @@ app.get("/all-coins-fees", async (req, res) => {
     }));
 
     res.json(result);
+
   } catch (err) {
     console.error("🔥 Unexpected error:", err);
     res.status(500).json({ error: "Something went wrong", details: err.message });
   }
 });
 
-// ✅ Endpoint لفرد عملة معينة
+// ✅ Endpoint لعملة واحدة
 app.post("/get-withdraw-fees", async (req, res) => {
   const { coin } = req.body;
-
   if (!coin) return res.status(400).json({ error: "coin is required" });
-  if (!process.env.BINANCE_API_KEY) {
-    return res.status(200).json({
-      warning: "BINANCE_API_KEY not set. Cannot fetch coin info.",
-      coin,
-      networks: [],
-    });
+
+  if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
+    return res.json({ warning: "API Key/Secret not set", coin, networks: [] });
   }
 
   try {
-    const response = await fetch(
-      "https://api.binance.com/sapi/v1/capital/config/getall",
-      {
-        method: "GET",
-        headers: { "X-MBX-APIKEY": process.env.BINANCE_API_KEY },
-      }
-    );
+    const timestamp = Date.now();
+    const queryString = `timestamp=${timestamp}`;
+    const signature = signQuery(queryString);
+
+    const url = `https://api.binance.com/sapi/v1/capital/config/getall?${queryString}&signature=${signature}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "X-MBX-APIKEY": process.env.BINANCE_API_KEY },
+    });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      return res.status(500).json({ error: "Binance API error", details: errorText });
+      const text = await response.text();
+      return res.status(500).json({ error: "Binance API error", details: text });
     }
 
     const data = await response.json();
@@ -97,22 +104,19 @@ app.post("/get-withdraw-fees", async (req, res) => {
       withdrawEnable: n.withdrawEnable,
     }));
 
-    res.json({
-      coin: coinInfo.coin,
-      name: coinInfo.name || "",
-      networks,
-    });
+    res.json({ coin: coinInfo.coin, name: coinInfo.name || "", networks });
+
   } catch (err) {
     console.error("🔥 Unexpected error:", err);
     res.status(500).json({ error: "Something went wrong", details: err.message });
   }
 });
 
-// ✅ Start server
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
-// 🔹 Self-ping every 30 seconds to keep container alive
+// Self-ping للحفاظ على container نشط
 setInterval(() => {
   fetch(`http://localhost:${PORT}/`)
     .then(() => console.log("💓 Self-ping successful"))
