@@ -1,4 +1,3 @@
-// استخدم CommonJS لتفادي مشاكل ESM
 const express = require("express");
 const fetch = require("node-fetch");
 
@@ -14,7 +13,42 @@ if (!process.env.BINANCE_API_KEY) {
 // ✅ Health check
 app.get("/", (req, res) => res.send("🚀 Server is alive!"));
 
-// ✅ Endpoint لجلب رسوم السحب
+// ✅ Endpoint لكل العملات
+app.get("/all-coins-fees", async (req, res) => {
+  try {
+    const response = await fetch("https://api.binance.com/sapi/v1/capital/config/getall", {
+      method: "GET",
+      headers: { "X-MBX-APIKEY": process.env.BINANCE_API_KEY },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.status(500).json({ error: "Binance API error", details: errorText });
+    }
+
+    const data = await response.json();
+
+    const result = data.map(coinInfo => ({
+      coin: coinInfo.coin,
+      name: coinInfo.name || "",
+      networks: (coinInfo.networkList || []).map(n => ({
+        network: n.network,
+        withdrawFee: n.withdrawFee,
+        minWithdrawAmount: n.withdrawMin,
+        depositEnable: n.depositEnable,
+        withdrawEnable: n.withdrawEnable,
+      })),
+    }));
+
+    res.json(result);
+
+  } catch (err) {
+    console.error("🔥 Unexpected error:", err);
+    res.status(500).json({ error: "Something went wrong", details: err.message });
+  }
+});
+
+// ✅ Endpoint لفرد عملة معينة
 app.post("/get-withdraw-fees", async (req, res) => {
   const { coin } = req.body;
 
@@ -38,13 +72,18 @@ app.post("/get-withdraw-fees", async (req, res) => {
 
     if (!coinInfo) return res.status(404).json({ error: "Coin not found" });
 
+    const networks = (coinInfo.networkList || []).map(n => ({
+      network: n.network,
+      withdrawFee: n.withdrawFee,
+      minWithdrawAmount: n.withdrawMin,
+      depositEnable: n.depositEnable,
+      withdrawEnable: n.withdrawEnable,
+    }));
+
     res.json({
       coin: coinInfo.coin,
-      networks: (coinInfo.networkList || []).map(n => ({
-        name: n.network,
-        withdrawFee: n.withdrawFee,
-        minWithdrawAmount: n.withdrawMin,
-      })),
+      name: coinInfo.name || "",
+      networks,
     });
 
   } catch (err) {
