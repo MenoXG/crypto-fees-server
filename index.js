@@ -49,14 +49,15 @@ app.get("/all-coins-fees", async (req, res) => {
       coin: coinInfo.coin,
       name: coinInfo.name || "",
       networks: (coinInfo.networkList || [])
-        .filter((n) => n.withdrawEnable)
+        .filter((n) => n.withdrawEnable) // فقط الشبكات المفعلة
         .map((n) => ({
           network: n.network,
           withdrawFee: n.withdrawFee,
           minWithdrawAmount: n.withdrawMin,
           depositEnable: n.depositEnable,
           withdrawEnable: n.withdrawEnable,
-        })),
+        }))
+        .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee)), // ترتيب حسب الأقل تكلفة
     }));
 
     res.json(result);
@@ -99,14 +100,15 @@ app.post("/get-withdraw-fees", async (req, res) => {
     if (!coinInfo) return res.status(404).json({ error: "Coin not found" });
 
     const networks = (coinInfo.networkList || [])
-      .filter((n) => n.withdrawEnable)
+      .filter((n) => n.withdrawEnable) // فقط الشبكات المفعلة
       .map((n) => ({
         network: n.network,
         withdrawFee: n.withdrawFee,
         minWithdrawAmount: n.withdrawMin,
         depositEnable: n.depositEnable,
         withdrawEnable: n.withdrawEnable,
-      }));
+      }))
+      .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee)); // ترتيب حسب الأقل تكلفة
 
     res.json({ coin: coinInfo.coin, name: coinInfo.name || "", networks });
 
