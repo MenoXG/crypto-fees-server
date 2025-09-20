@@ -1,10 +1,10 @@
 const express = require("express");
-const fetch = require("node-fetch");
+const fetch = require("node-fetch"); // النسخة 2.x متوافقة مع CommonJS
 
 const app = express();
 app.use(express.json());
 
-// 🔹 تحقق من وجود API Key ولكن بدون crash
+// 🔹 تحذير إذا لم يتم ضبط API Key
 if (!process.env.BINANCE_API_KEY) {
   console.warn("⚠️ BINANCE_API_KEY is not set! API requests to Binance will fail.");
 }
