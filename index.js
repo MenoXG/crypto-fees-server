@@ -43,16 +43,19 @@ function signQuery(queryString) {
     .digest("hex");
 }
 
-/* ------------------------------------------------------------------
-   ✅ Endpoint لعرض جميع العملات مع الشبكات المسموح بها
------------------------------------------------------------------- */
+// ✅ Endpoint لكل العملات
 app.get("/all-coins-fees", async (req, res) => {
+  if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
+    return res.json({ warning: "API Key/Secret not set", coins: [] });
+  }
+
   try {
     const timestamp = Date.now();
     const queryString = `timestamp=${timestamp}`;
     const signature = signQuery(queryString);
 
     const url = `https://api.binance.com/sapi/v1/capital/config/getall?${queryString}&signature=${signature}`;
+
     const response = await fetch(url, {
       method: "GET",
       headers: { "X-MBX-APIKEY": process.env.BINANCE_API_KEY },
@@ -70,7 +73,7 @@ app.get("/all-coins-fees", async (req, res) => {
       networks: (coinInfo.networkList || [])
         .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network))
         .map((n) => ({
-          network: NETWORK_NAME_MAP[n.network] || n.network,
+          network: NETWORK_NAME_MAP[n.network] || n.network, // تغيير الاسم للعرض
           withdrawFee: n.withdrawFee,
           minWithdrawAmount: n.withdrawMin,
           depositEnable: n.depositEnable,
@@ -80,18 +83,21 @@ app.get("/all-coins-fees", async (req, res) => {
     }));
 
     res.json(result);
+
   } catch (err) {
     console.error("🔥 Unexpected error:", err);
     res.status(500).json({ error: "Something went wrong", details: err.message });
   }
 });
 
-/* ------------------------------------------------------------------
-   ✅ Endpoint للحصول على شبكات عملة واحدة
------------------------------------------------------------------- */
+// ✅ Endpoint لعملة واحدة
 app.post("/get-withdraw-fees", async (req, res) => {
   const { coin } = req.body;
   if (!coin) return res.status(400).json({ error: "coin is required" });
+
+  if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
+    return res.json({ warning: "API Key/Secret not set", coin, networks: [] });
+  }
 
   try {
     const timestamp = Date.now();
@@ -99,6 +105,7 @@ app.post("/get-withdraw-fees", async (req, res) => {
     const signature = signQuery(queryString);
 
     const url = `https://api.binance.com/sapi/v1/capital/config/getall?${queryString}&signature=${signature}`;
+
     const response = await fetch(url, {
       method: "GET",
       headers: { "X-MBX-APIKEY": process.env.BINANCE_API_KEY },
@@ -117,7 +124,7 @@ app.post("/get-withdraw-fees", async (req, res) => {
     const networks = (coinInfo.networkList || [])
       .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network))
       .map((n) => ({
-        network: NETWORK_NAME_MAP[n.network] || n.network,
+        network: NETWORK_NAME_MAP[n.network] || n.network, // تغيير الاسم للعرض
         withdrawFee: n.withdrawFee,
         minWithdrawAmount: n.withdrawMin,
         depositEnable: n.depositEnable,
@@ -130,58 +137,13 @@ app.post("/get-withdraw-fees", async (req, res) => {
     }
 
     res.json({ coin: coinInfo.coin, name: coinInfo.name || "", networks });
+
   } catch (err) {
     console.error("🔥 Unexpected error:", err);
     res.status(500).json({ error: "Something went wrong", details: err.message });
   }
 });
 
-/* ------------------------------------------------------------------
-   ✅ Endpoint جديد: سعر الـ Convert من USDT → أي عملة
------------------------------------------------------------------- */
-app.post("/convert-rate", async (req, res) => {
-  const { targetCoin } = req.body;
-  if (!targetCoin) return res.status(400).json({ error: "targetCoin is required" });
-
-  try {
-    const timestamp = Date.now();
-    const body = {
-      fromAsset: "USDT",       // دائماً نبدأ من USDT
-      toAsset: targetCoin.toUpperCase(),
-      fromAmount: 1,           // نجيب سعر 1 USDT
-      timestamp,
-    };
-
-    const query = new URLSearchParams(body).toString();
-    const signature = signQuery(query);
-
-    const response = await fetch(`https://api.binance.com/sapi/v1/convert/getQuote?${query}&signature=${signature}`, {
-      method: "POST",
-      headers: {
-        "X-MBX-APIKEY": process.env.BINANCE_API_KEY,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(500).json({ error: "Binance Convert API error", details: text });
-    }
-
-    const data = await response.json();
-    return res.json({
-      from: "USDT",
-      to: targetCoin.toUpperCase(),
-      rate: data.toAmount, // السعر المحسوب من 1 USDT
-    });
-  } catch (err) {
-    console.error("🔥 Convert error:", err);
-    res.status(500).json({ error: "Something went wrong", details: err.message });
-  }
-});
-
-/* ------------------------------------------------------------------
-   ✅ تشغيل السيرفر
------------------------------------------------------------------- */
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
