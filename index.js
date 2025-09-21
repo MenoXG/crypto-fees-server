@@ -14,17 +14,17 @@ const ALLOWED_NETWORKS = [
 
 // خريطة لتغيير أسماء الشبكات للعرض
 const NETWORK_NAME_MAP = {
-  "ETH": "Ethereum (ERC20)",
-  "BSC": "BNB Smart Chain (BEP20)",
-  "MATIC": "Polygon (MATIC)",
-  "ARBITRUM": "Arbitrum",
-  "TON": "TON",
-  "BTC": "Bitcoin (BTC)",
-  "APT": "Aptos (APT)",
-  "SOL": "Solana (SOL)",
-  "XRP": "Ripple (XRP)",
-  "TRX": "TRC20 (Tron)",
-  "LTC": "Litecoin (LTC)"
+  "ETH": "✅ Ethereum (ERC20)",
+  "BSC": "✅ BNB Smart Chain (BEP20)",
+  "MATIC": "✅ Polygon (MATIC)",
+  "ARBITRUM": "✅ Arbitrum",
+  "TON": "✅ TON",
+  "BTC": "✅ Bitcoin (BTC)",
+  "APT": "✅ Aptos (APT)",
+  "SOL": "✅ Solana (SOL)",
+  "XRP": "✅ Ripple (XRP)",
+  "TRX": "✅ TRC20 (Tron)",
+  "LTC": "✅ Litecoin (LTC)"
 };
 
 // تحذير إذا لم يتم ضبط API Key أو Secret
