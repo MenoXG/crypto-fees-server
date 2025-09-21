@@ -9,8 +9,23 @@ app.use(express.json());
 const ALLOWED_NETWORKS = [
   "ETH", "BSC", "MATIC", "ARBITRUM",
   "TON", "BTC", "APT", "SOL", "XRP", "TRX",
-  "LTC" // تم إضافة Litecoin
+  "LTC"
 ];
+
+// خريطة لتغيير أسماء الشبكات للعرض
+const NETWORK_NAME_MAP = {
+  "ETH": "Ethereum (ERC20)",
+  "BSC": "BNB Smart Chain (BEP20)",
+  "MATIC": "Polygon (MATIC)",
+  "ARBITRUM": "Arbitrum",
+  "TON": "TON",
+  "BTC": "Bitcoin (BTC)",
+  "APT": "Aptos (APT)",
+  "SOL": "Solana (SOL)",
+  "XRP": "Ripple (XRP)",
+  "TRX": "TRC20 (Tron)",
+  "LTC": "Litecoin (LTC)"
+};
 
 // تحذير إذا لم يتم ضبط API Key أو Secret
 if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
@@ -56,15 +71,15 @@ app.get("/all-coins-fees", async (req, res) => {
       coin: coinInfo.coin,
       name: coinInfo.name || "",
       networks: (coinInfo.networkList || [])
-        .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network)) // فقط الشبكات المسموح بها والمفعلة
+        .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network))
         .map((n) => ({
-          network: n.network,
+          network: NETWORK_NAME_MAP[n.network] || n.network, // تغيير الاسم للعرض
           withdrawFee: n.withdrawFee,
           minWithdrawAmount: n.withdrawMin,
           depositEnable: n.depositEnable,
           withdrawEnable: n.withdrawEnable,
         }))
-        .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee)), // ترتيب حسب الأقل تكلفة
+        .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee)),
     }));
 
     res.json(result);
@@ -107,15 +122,15 @@ app.post("/get-withdraw-fees", async (req, res) => {
     if (!coinInfo) return res.status(404).json({ error: "Coin not found" });
 
     const networks = (coinInfo.networkList || [])
-      .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network)) // فقط الشبكات المسموح بها والمفعلة
+      .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network))
       .map((n) => ({
-        network: n.network,
+        network: NETWORK_NAME_MAP[n.network] || n.network, // تغيير الاسم للعرض
         withdrawFee: n.withdrawFee,
         minWithdrawAmount: n.withdrawMin,
         depositEnable: n.depositEnable,
         withdrawEnable: n.withdrawEnable,
       }))
-      .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee)); // ترتيب حسب الأقل تكلفة
+      .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee));
 
     if (networks.length === 0) {
       return res.json({ coin: coinInfo.coin, name: coinInfo.name || "", networks: [], warning: "No allowed networks available" });
