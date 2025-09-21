@@ -8,7 +8,7 @@ app.use(express.json());
 // قائمة الشبكات المسموح بها
 const ALLOWED_NETWORKS = [
   "ETH", "BSC", "MATIC", "ARBITRUM",
-  "TON", "BTC", "AVAX", "SOL", "XRP", "TRX",
+  "TON", "BTC", "APT", "SOL", "XRP", "TRX",
   "LTC" // تم إضافة Litecoin
 ];
 
