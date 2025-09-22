@@ -9,7 +9,7 @@ app.use(express.json());
 const ALLOWED_NETWORKS = [
   "ETH", "BSC", "MATIC", "ARBITRUM",
   "TON", "BTC", "APT", "SOL", "XRP", "TRX",
-  "LTC", "OP"
+  "LTC", "OPTIMISM"
 ];
 
 // خريطة لتغيير أسماء الشبكات للعرض
@@ -25,7 +25,7 @@ const NETWORK_NAME_MAP = {
   "XRP": "✅ Ripple (XRP)",
   "TRX": "✅ TRC20 (Tron)",
   "LTC": "✅ Litecoin (LTC)",
-  "OP": "✅ Optimism (OP)"
+  "OPTIMISM": "✅ Optimism (OP)"
 };
 
 // تحذير إذا لم يتم ضبط API Key أو Secret
