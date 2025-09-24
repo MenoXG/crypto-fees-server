@@ -26,7 +26,8 @@ const NETWORK_NAME_MAP = {
   "TRX": "✅ TRC20 (Tron)",
   "LTC": "✅ Litecoin (LTC)",
   "OPTIMISM": "✅ Optimism (OP)",
-  "AVAXC": "✅ AVAX C-Chain"
+  "AVAXC": "✅ AVAX C-Chain",
+  "SONIC": "✅ Sonic Network"
 };
 
 // تحذير إذا لم يتم ضبط API Key أو Secret
