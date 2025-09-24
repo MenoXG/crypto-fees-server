@@ -16,7 +16,7 @@ const ALLOWED_NETWORKS = [
 const NETWORK_NAME_MAP = {
   "ETH": "✅ Ethereum (ERC20)",
   "BSC": "✅ BNB Smart Chain (BEP20)",
-  "MATIC": "✅ Polygon (MATIC)",
+  "MATIC": "✅ Polygon",
   "ARBITRUM": "✅ Arbitrum",
   "TON": "✅ TON",
   "BTC": "✅ Bitcoin (BTC)",
