@@ -9,7 +9,7 @@ app.use(express.json());
 const ALLOWED_NETWORKS = [
   "ETH", "BSC", "MATIC", "ARBITRUM",
   "TON", "BTC", "APT", "SOL", "XRP", "TRX",
-  "LTC", "OPTIMISM", "AVAXC", "SONIC"
+  "LTC", "OPTIMISM", "AVAXC", "SONIC", "CELO"
 ];
 
 // خريطة لتغيير أسماء الشبكات للعرض
@@ -27,7 +27,8 @@ const NETWORK_NAME_MAP = {
   "LTC": "✅ Litecoin (LTC)",
   "OPTIMISM": "✅ Optimism (OP)",
   "AVAXC": "✅ AVAX C-Chain",
-  "SONIC": "✅ Sonic Network"
+  "SONIC": "✅ Sonic Network",
+  "CELO": "✅ CELO"
 };
 
 // تحذير إذا لم يتم ضبط API Key أو Secret
