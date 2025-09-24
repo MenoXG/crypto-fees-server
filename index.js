@@ -174,7 +174,7 @@ app.post("/kast", async (req, res) => {
 
     // الشبكات المطلوبة فقط
     const ALLOWED_KAST_NETWORKS = [
-      "BSC", "MATIC", "ARBITRUM", "SOL", "TRX", "ETH"
+      "BSC", "MATIC", "ARBITRUM", "SOL", "TRX", "ETH", "AVAXC"
     ];
 
     const validNetworks = (coinInfo.networkList || [])
