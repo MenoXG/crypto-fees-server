@@ -1,10 +1,8 @@
 import express from "express";
 import fetch from "node-fetch";
 import crypto from "crypto";
-import compression from "compression";
 
 const app = express();
-app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -67,8 +65,7 @@ async function fetchBinanceData() {
     method: "GET",
     headers: { 
       "X-MBX-APIKEY": process.env.BINANCE_API_KEY,
-      "Connection": "keep-alive",
-      "Accept-Encoding": "gzip, deflate, br"
+      "Connection": "keep-alive"
     },
     timeout: 10000 // 10 ثانية timeout
   });
