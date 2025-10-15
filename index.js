@@ -38,16 +38,13 @@ if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
   console.warn("⚠️ BINANCE_API_KEY or BINANCE_API_SECRET is not set! API requests will fail.");
 }
 
-// الكاش المحسن مع إضافة keep-alive
+// الكاش المحسن
 let warmCache = {
   data: null,
   timestamp: null,
-  CACHE_DURATION: 2 * 60 * 1000, // 2 دقيقة
-  isFetching: false // منع طلبات مكررة
+  CACHE_DURATION: 5 * 60 * 1000, // 5 دقائق لتقليل الطلبات
+  isFetching: false
 };
-
-// Keep-alive connections pool
-const connectionPool = new Map();
 
 // Helper لتوليد signature
 function signQuery(queryString) {
@@ -57,7 +54,7 @@ function signQuery(queryString) {
     .digest("hex");
 }
 
-// دالة محسنة لجلب البيانات من Binance مع connection reuse
+// دالة محسنة لجلب البيانات من Binance
 async function fetchBinanceData() {
   const timestamp = Date.now();
   const queryString = `timestamp=${timestamp}`;
@@ -67,7 +64,7 @@ async function fetchBinanceData() {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 ثواني timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 ثانية timeout
 
     const response = await fetch(url, {
       method: "GET",
@@ -95,7 +92,7 @@ async function fetchBinanceData() {
   }
 }
 
-// Health check سريع
+// ✅ Health Check الأساسي (سريع جداً)
 app.get("/", (req, res) => {
   res.json({ 
     status: "🚀 Server is alive!", 
@@ -105,39 +102,16 @@ app.get("/", (req, res) => {
   });
 });
 
-// ✅ Endpoint سريع للبيانات الأساسية
-app.get("/health-data", async (req, res) => {
-  try {
-    const data = warmCache.data;
-    if (!data) {
-      return res.json({ status: "no_cache", message: "No cached data available" });
-    }
-
-    // إرجاع بيانات مختصرة وسريعة
-    const quickResult = data.slice(0, 20).map((coinInfo) => ({
-      coin: coinInfo.coin,
-      networks: (coinInfo.networkList || [])
-        .filter((n) => n.withdrawEnable && ALLOWED_NETWORKS.includes(n.network))
-        .slice(0, 3) // فقط أول 3 شبكات
-        .map((n) => ({
-          network: NETWORK_NAME_MAP[n.network] || n.network,
-          withdrawFee: n.withdrawFee,
-        }))
-    }));
-
-    res.json({
-      data: quickResult,
-      timestamp: new Date().toISOString(),
-      totalCoins: data.length,
-      source: "cache"
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: "Health data error", details: err.message });
-  }
+// ✅ Endpoint بسيط وسريع للحفاظ على النشاط
+app.get("/ping", (req, res) => {
+  res.json({ 
+    status: "pong", 
+    timestamp: new Date().toISOString(),
+    memory: process.memoryUsage().rss / 1024 / 1024 + " MB"
+  });
 });
 
-// ✅ Endpoint لكل العملات (مع تحسينات الأداء)
+// ✅ Endpoint لكل العملات
 app.get("/all-coins-fees", async (req, res) => {
   if (!process.env.BINANCE_API_KEY || !process.env.BINANCE_API_SECRET) {
     return res.json({ warning: "API Key/Secret not set", coins: [] });
@@ -148,19 +122,14 @@ app.get("/all-coins-fees", async (req, res) => {
     let data;
     let source = "cache";
     
-    // إذا كان الكاش قديم أو غير موجود، جلب بيانات جديدة
     if (!warmCache.data || !warmCache.timestamp || 
         (now - warmCache.timestamp) > warmCache.CACHE_DURATION) {
       
       if (warmCache.isFetching) {
-        // إذا كان هناك fetch جاري، استخدم الكاش القديم مع تحذير
         if (warmCache.data) {
-          console.log("⚠️ Using stale cache while fetching new data");
           data = warmCache.data;
           source = "stale_cache";
         } else {
-          // لا توجد بيانات مطلقاً، انتظر قليلاً ثم حاول
-          await new Promise(resolve => setTimeout(resolve, 500));
           data = await fetchBinanceData();
           warmCache.data = data;
           warmCache.timestamp = Date.now();
@@ -179,7 +148,6 @@ app.get("/all-coins-fees", async (req, res) => {
       }
     } else {
       data = warmCache.data;
-      console.log("✅ Using warm cache data");
     }
 
     const result = data.map((coinInfo) => ({
@@ -206,9 +174,7 @@ app.get("/all-coins-fees", async (req, res) => {
   } catch (err) {
     console.error("🔥 Unexpected error:", err);
     
-    // استخدام الكاش القديم كحل أخير
     if (warmCache.data) {
-      console.log("🔄 Using cached data as fallback");
       const result = warmCache.data.map((coinInfo) => ({
         coin: coinInfo.coin,
         name: coinInfo.name || "",
@@ -239,7 +205,7 @@ app.get("/all-coins-fees", async (req, res) => {
   }
 });
 
-// ✅ Endpoint لعملة واحدة (محسن)
+// ✅ Endpoint لعملة واحدة
 app.post("/get-withdraw-fees", async (req, res) => {
   const { coin } = req.body;
   if (!coin) return res.status(400).json({ error: "coin is required" });
@@ -249,7 +215,6 @@ app.post("/get-withdraw-fees", async (req, res) => {
   }
 
   try {
-    // استخدام الكاش أولاً، إذا لم يكن موجوداً جلب بيانات جديدة
     let data = warmCache.data;
     let source = "cache";
     
@@ -327,13 +292,12 @@ app.post("/get-withdraw-fees", async (req, res) => {
   }
 });
 
-// ✅ Endpoint جديد KAST (محسن)
+// ✅ Endpoint KAST
 app.post("/kast", async (req, res) => {
   const { much } = req.body;
   if (!much) return res.status(400).json({ error: "much is required" });
 
   try {
-    // استخدام الكاش أولاً
     let data = warmCache.data;
     let source = "cache";
     
@@ -449,64 +413,74 @@ app.get("/cache-status", (req, res) => {
   });
 });
 
-// ✅ Keep-alive endpoint للحفاظ على الخادم نشط
-app.get("/keep-alive", (req, res) => {
-  res.json({ 
-    status: "🫀 Server is keeping alive", 
-    timestamp: new Date().toISOString(),
-    memory: process.memoryUsage(),
-    uptime: process.uptime()
-  });
-});
-
-// ✅ Health check دوري محسن
-setInterval(async () => {
-  try {
-    // تحديث الكاش كل دقيقتين
-    if (!warmCache.data || (Date.now() - warmCache.timestamp) > warmCache.CACHE_DURATION) {
-      if (!warmCache.isFetching) {
-        console.log('🔄 Auto-refreshing cache...');
-        warmCache.isFetching = true;
-        try {
-          const data = await fetchBinanceData();
-          warmCache.data = data;
-          warmCache.timestamp = Date.now();
-          console.log('✅ Cache auto-refreshed successfully');
-        } catch (error) {
-          console.log('⚠️ Auto-refresh failed:', error.message);
-        } finally {
-          warmCache.isFetching = false;
-        }
+// ✅ حل جذري لمنع إيقاف الخادم - طلبات Keep-alive متعددة
+function startKeepAlive() {
+  const baseUrl = process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`;
+  
+  // طلبات متعددة بفترات مختلفة
+  const keepAliveIntervals = [
+    setInterval(async () => {
+      try {
+        await fetch(`${baseUrl}/ping`);
+      } catch (error) {
+        // تجاهل الأخطاء في الطلبات الداخلية
       }
-    }
+    }, 20 * 1000), // كل 20 ثانية
     
-    // تنظيف الاتصالات القديمة
-    const now = Date.now();
-    for (const [key, timestamp] of connectionPool.entries()) {
-      if (now - timestamp > 300000) { // 5 دقائق
-        connectionPool.delete(key);
+    setInterval(async () => {
+      try {
+        await fetch(`${baseUrl}/`);
+      } catch (error) {
+        // تجاهل الأخطاء
+      }
+    }, 25 * 1000), // كل 25 ثانية
+    
+    setInterval(async () => {
+      try {
+        await fetch(`${baseUrl}/cache-status`);
+      } catch (error) {
+        // تجاهل الأخطاء
+      }
+    }, 30 * 1000), // كل 30 ثانية
+  ];
+  
+  return keepAliveIntervals;
+}
+
+// ✅ تحديث الكاش كل 5 دقائق فقط (لتقليل الحمل)
+setInterval(async () => {
+  try {
+    if (!warmCache.isFetching && 
+        (!warmCache.data || (Date.now() - warmCache.timestamp) > warmCache.CACHE_DURATION)) {
+      console.log('🔄 Auto-refreshing cache...');
+      warmCache.isFetching = true;
+      try {
+        const data = await fetchBinanceData();
+        warmCache.data = data;
+        warmCache.timestamp = Date.now();
+        console.log('✅ Cache auto-refreshed successfully');
+      } catch (error) {
+        console.log('⚠️ Auto-refresh failed:', error.message);
+      } finally {
+        warmCache.isFetching = false;
       }
     }
   } catch (error) {
-    console.log('⚠️ Keep-alive routine error:', error.message);
+    console.log('⚠️ Cache refresh error:', error.message);
   }
-}, 2 * 60 * 1000); // كل دقيقتين
+}, 5 * 60 * 1000); // كل 5 دقائق فقط
 
-// ✅ Keep-alive سريع كل 30 ثانية للحفاظ على الخادم نشط
-setInterval(async () => {
-  try {
-    // طلب بسيط للحفاظ على النشاط
-    await fetch(`http://localhost:${PORT}/keep-alive`).catch(() => {});
-  } catch (error) {
-    // تجاهل الأخطاء في keep-alive الداخلي
-  }
-}, 30 * 1000); // كل 30 ثانية
-
-// Start server مع إعدادات محسنة
+// Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // بدء keep-alive بعد بدء التشغيل
+  setTimeout(() => {
+    startKeepAlive();
+    console.log('🔛 Keep-alive started');
+  }, 2000);
   
   // تسخين الكاش فور بدء التشغيل
   setTimeout(async () => {
@@ -519,5 +493,22 @@ app.listen(PORT, '0.0.0.0', () => {
     } catch (error) {
       console.log('⚠️ Cache warm up failed:', error.message);
     }
-  }, 500);
+  }, 1000);
+});
+
+// معالجة إغلاق الخادم بشكل أنظف
+process.on('SIGTERM', () => {
+  console.log('🛑 Received SIGTERM, shutting down gracefully');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Received SIGINT, shutting down gracefully');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });
