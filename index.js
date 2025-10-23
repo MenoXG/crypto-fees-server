@@ -30,6 +30,8 @@ const NETWORK_NAME_MAP = {
   "SONIC": "✅ Sonic Network",
   "CELO": "✅ CELO",
   "BASE": "✅ Base"
+  "KAIA": "✅ Kaia",
+  "PLASMA": "✅ Plasma"
 };
 
 // تحذير إذا لم يتم ضبط API Key أو Secret
