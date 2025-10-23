@@ -29,7 +29,7 @@ const NETWORK_NAME_MAP = {
   "AVAXC": "✅ AVAX C-Chain",
   "SONIC": "✅ Sonic Network",
   "CELO": "✅ CELO",
-  "BASE": "✅ Base"
+  "BASE": "✅ Base",
   "KAIA": "✅ Kaia",
   "PLASMA": "✅ Plasma"
 };
