@@ -9,7 +9,7 @@ app.use(express.json());
 const ALLOWED_NETWORKS = [
   "ETH", "BSC", "MATIC", "ARBITRUM",
   "TON", "BTC", "APT", "SOL", "XRP", "TRX",
-  "LTC", "OPTIMISM", "AVAXC", "SONIC", "CELO", "BASE"
+  "LTC", "OPTIMISM", "AVAXC", "SONIC", "CELO", "BASE", "PLASMA", "KAIA"
 ];
 
 // خريطة لتغيير أسماء الشبكات للعرض
