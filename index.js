@@ -191,8 +191,37 @@ app.post("/kast", async (req, res) => {
       )
       .sort((a, b) => parseFloat(a.withdrawFee) - parseFloat(b.withdrawFee));
 
+    // إيجاد الحد الأدنى المتوفر بين جميع الشبكات المسموح بها
+    const allNetworks = (coinInfo.networkList || [])
+      .filter((n) =>
+        ALLOWED_KAST_NETWORKS.includes(n.network) &&
+        n.withdrawEnable
+      );
+
+    if (allNetworks.length === 0) {
+      return res.json({ error: "No suitable network found" });
+    }
+
+    // إيجاد أقل حد أدنى متوفر
+    const minWithdrawAmount = Math.min(...allNetworks.map(n => parseFloat(n.withdrawMin)));
+    
+    // إيجاد جميع الشبكات التي لديها هذا الحد الأدنى
+    const networksWithMinAmount = allNetworks.filter(n => parseFloat(n.withdrawMin) === minWithdrawAmount);
+    
+    // من بين هذه الشبكات، إيجاد الشبكة ذات أقل رسوم سحب
+    const minRequiredNetwork = networksWithMinAmount.reduce((min, network) => {
+      return parseFloat(network.withdrawFee) < parseFloat(min.withdrawFee) ? network : min;
+    });
+
+    const minRequiredAmount = minRequiredNetwork.withdrawMin;
+    const minRequiredNetworkName = NETWORK_NAME_MAP[minRequiredNetwork.network] || minRequiredNetwork.network;
+
     if (validNetworks.length === 0) {
-      return res.json({ error: "No suitable network found for this amount" });
+      return res.json({ 
+        error: "No suitable network found for this amount",
+        minRequired: minRequiredAmount,
+        minRequiredNetwork: minRequiredNetworkName
+      });
     }
 
     const best = validNetworks[0];
