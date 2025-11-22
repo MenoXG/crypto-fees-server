@@ -215,12 +215,14 @@ app.post("/kast", async (req, res) => {
 
     const minRequiredAmount = minRequiredNetwork.withdrawMin;
     const minRequiredNetworkName = NETWORK_NAME_MAP[minRequiredNetwork.network] || minRequiredNetwork.network;
+    const minRequiredWithdrawFee = minRequiredNetwork.withdrawFee;
 
     if (validNetworks.length === 0) {
       return res.json({ 
         error: "No suitable network found for this amount",
         minRequired: minRequiredAmount,
-        minRequiredNetwork: minRequiredNetworkName
+        minRequiredNetwork: minRequiredNetworkName,
+        withdrawFee: minRequiredWithdrawFee
       });
     }
 
